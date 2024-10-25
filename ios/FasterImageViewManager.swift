@@ -42,6 +42,7 @@ struct ImageOptions: Decodable {
     let url: String
     let headers: [String: String]?
     let grayscale: Double?
+    let colorMatrix: [[Double]]?
 }
 
 struct BorderRadii {
@@ -134,11 +135,12 @@ final class FasterImageView: UIView {
                 }
                 progressiveLoadingEnabled = options.progressiveLoadingEnabled ?? false
                 grayscale = options.grayscale ?? 0.0
+                colorMatrix = options.colorMatrix ?? [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0]]
 
                 if let url = URL(string: options.url) {
                     var urlRequestFromOptions = URLRequest(url: url)
                     urlRequestFromOptions.allHTTPHeaderFields = options.headers
-                    
+
                     urlRequest = urlRequestFromOptions
                 } else {
                     onError?([
@@ -227,6 +229,26 @@ final class FasterImageView: UIView {
                             "inputSaturation": 1.0 - grayscale,
                         ],
                         identifier: "custom.grayscale.\(grayscale)"
+                    )
+                ]
+            }
+        }
+    }
+
+    var colorMatrix = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0]] {
+        didSet {
+            if !colorMatrix.isEmpty && colorMatrix.count == 5 && colorMatrix.allSatisfy(({ $0.count == 4 })) {
+                lazyImageView.processors = [
+                    ImageProcessors.CoreImageFilter(
+                        name: "CIColorMatrix",
+                        parameters: [
+                            "inputRVector": CIVector(x: colorMatrix[0][0], y: colorMatrix[0][1], z: colorMatrix[0][2], w: colorMatrix[0][3]),
+                            "inputGVector": CIVector(x: colorMatrix[1][0], y: colorMatrix[1][1], z: colorMatrix[1][2], w: colorMatrix[1][3]),
+                            "inputBVector": CIVector(x: colorMatrix[2][0], y: colorMatrix[2][1], z: colorMatrix[2][2], w: colorMatrix[2][3]),
+                            "inputAVector": CIVector(x: colorMatrix[3][0], y: colorMatrix[3][1], z: colorMatrix[3][2], w: colorMatrix[3][3]),
+                            "inputBiasVector": CIVector(x: colorMatrix[4][0], y: colorMatrix[4][1], z: colorMatrix[4][2], w: colorMatrix[4][3]),
+                        ],
+                        identifier: "custom.colorMatrix"
                     )
                 ]
             }
@@ -381,7 +403,7 @@ fileprivate extension UIColor {
         if !hex.starts(with: "#") {
             return nil
         }
-        
+
         let input = hex
             .replacingOccurrences(of: "#", with: "")
             .uppercased()
@@ -389,7 +411,7 @@ fileprivate extension UIColor {
         var red: CGFloat = 0
         var blue: CGFloat = 0
         var green: CGFloat = 0
-        
+
         switch (input.count) {
             case 3 /* #RGB */:
                 red = Self.colorComponent(from: input, start: 0, length: 1)

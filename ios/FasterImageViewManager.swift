@@ -455,7 +455,7 @@ final class FasterImageView: UIView {
                         "inputAVector": CIVector(x: colorMatrix[3][0], y: colorMatrix[3][1], z: colorMatrix[3][2], w: colorMatrix[3][3]),
                         "inputBiasVector": CIVector(x: colorMatrix[0][4], y: colorMatrix[1][4], z: colorMatrix[2][4], w: colorMatrix[3][4]),
                       ],
-                      identifier: "custom.colorMatrix"
+                      identifier: generateColorMatrixIdentifier(from: colorMatrix)
                   )
               ]
           }
@@ -595,6 +595,23 @@ final class FasterImageView: UIView {
 // MARK: - Extensions
 
 fileprivate extension FasterImageView {
+
+  func generateColorMatrixIdentifier(from matrix: [[Double]]) -> String {
+    let flattened = matrix.flatMap { $0 }
+    
+    var hasher = Hasher()
+    for value in flattened {
+      // Hash the exact bit representation to ensure identical matrices produce identical identifiers
+      // Important for cache key consistency
+      hasher.combine(value.bitPattern)
+    }
+    let hash = hasher.finalize()
+  
+    let hashValue = UInt64(bitPattern: Int64(hash))
+    let hashString = String(format: "%016llx", hashValue)
+    
+    return "custom.colorMatrix.\(hashString)"
+  }
   
   func completionHandler(with result: Result<ImageResponse, Error>) {
     switch result {
